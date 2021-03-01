@@ -6,6 +6,11 @@
     transition: .1s;
 }
 
+a{
+    text-decoration: none;
+    color: black;
+}
+
 .sidebarChat:hover{
     background: #ebebeb;
 }

@@ -1,4 +1,4 @@
-import { Avatar, Button, IconButton } from '@material-ui/core';
+import { Avatar, IconButton } from '@material-ui/core';
 import React, { useEffect, useState } from 'react';
 import './Chat.css';
 import AttachFileIcon from '@material-ui/icons/AttachFile';
@@ -6,22 +6,51 @@ import MoreVertIcon from '@material-ui/icons/MoreVert';
 import SearchIcon from '@material-ui/icons/Search';
 import InsertEmoticonIcon from '@material-ui/icons/InsertEmoticon';
 import MicIcon from '@material-ui/icons/Mic';
+import { useParams } from 'react-router-dom';
+import db from '../../firebase';
+import {useStateValue} from '../../StateProvider';
+import firebase from 'firebase';
 
 function Chat() {
 
-    const [seed, setSeed] = useState("");
+    const [input, setInput] = useState("");
+    const { roomId } = useParams();
+    const [roomName, setRoomName] = useState("");
+    const [messages, setMessages] = useState([]);
+    const [{user}, dispatch] = useStateValue();
 
     useEffect(() => {
-        setSeed(Math.floor(Math.random() * 5000));
-    }, []);
+        if(roomId){
+            db.collection('Rooms').doc(roomId).onSnapshot(snapshot => setRoomName(snapshot.data().name));
+
+            db.collection('Rooms').doc(roomId).collection('messages').orderBy('timestamp', 'asc').onSnapshot(snapshot => {
+                return setMessages(snapshot.docs.map(doc => doc.data()));
+            });
+        }
+    }, [roomId]);
+    const sendMessage = (e) => {
+        e.preventDefault();
+        console.log(`You typed >>> ${input}`);
+
+        db.collection("Rooms").doc(roomId).collection('messages').add({
+            message: input,
+            name: user.displayName,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+        });
+
+        setInput("");
+    }
 
     return (
         <div className="chat">
             <div className="chat__header">
-                <Avatar src={`https://avatars.dicebear.com/api/human/${seed}.svg/`}/>
+                <Avatar src={`https://avatars.dicebear.com/api/human/${Math.floor(Math.random() * 5000)}.svg/`}/>
                 <div className="chat__header-info">
-                    <h3>Room name</h3>
-                    <p>Last seen at ...</p>
+                    <h3>{roomName}</h3>
+                    <p>
+                        Last seen{" "}
+                        {new Date(messages[messages.length - 1]?.timestamp?.toDate()).toUTCString()}
+                    </p>
                 </div> 
                     
                 <div className="chat__header-right">
@@ -38,19 +67,32 @@ function Chat() {
             </div>
 
             <div className="chat__body">
-                <p 
-                className={`chat__message ${true && "chat__reciever"}`}>
-                    <span className="chat__name">Anton Buhai</span>
-                    Hey guys
-                    <span className="chat__timestamp">3:52pm</span>
-                </p>
+                {messages.map(message => {
+                    return (
+                        <p 
+                            className={`chat__message ${message.name === user.displayName && "chat__reciever"}`}>
+                            <span className="chat__name">{message.name}</span>
+                            {message.message}
+                            <span className="chat__timestamp">
+                                {new Date(message.timestamp?.toDate()).toUTCString()}
+                            </span>
+                        </p>
+                    )
+                })}
             </div>
 
             <div className="chat__footer">
                 <InsertEmoticonIcon />
                 <form>
-                    <input type="text" placeholder="Type a message"/>
-                    <button>Send a message</button>
+                    <input 
+                        type="text" 
+                        placeholder="Type a message"
+                        value={input}
+                        onChange={e => setInput(e.target.value)}/>
+                    <button type="submit"
+                        onClick={sendMessage}>
+                        Send a message
+                    </button>
                 </form>
                 <MicIcon />
             </div>
